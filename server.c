@@ -108,7 +108,7 @@ void handle_client_requests(int client_socket, struct StockData *msft_stock, int
                 // Adjust the price to have 2 digits after the decimal point
                 snprintf(response, BUFFER_SIZE, "%.2f", price);
             } else {
-                snprintf(response, BUFFER_SIZE, "Price not found for the date");
+                snprintf(response, BUFFER_SIZE, "Unknown");
             }
             send(client_socket, response, strlen(response), 0);
         } else {
@@ -133,7 +133,7 @@ void handle_client_requests(int client_socket, struct StockData *msft_stock, int
         //         }
         //         send(client_socket, response, strlen(response), 0);
         } else {
-            char invalid_msg[] = "Invalid command";
+            char invalid_msg[] = "Invalid syntax";
             send(client_socket, invalid_msg, strlen(invalid_msg), 0);
         }
     }
