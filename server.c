@@ -9,6 +9,14 @@
 - Set up basic client server structure
 - Need to do MaxProfits and Prices commands
 - Currently has a bug where the prices command kills the terminal I'm not sure how to fix that
+
+11/26 - Kevin
+- Fixed the bugs related to command processing
+  - It now handles invalid commands
+  - The terminal doesn't kill after the second command anymore (it needed a while loop)
+- The Prices command seems to work fine now!
+- Fixed a little bit of the formatting to match the example output on the assignment spec
+- Created the quit command, it quits both the client and server.
 */
 
 #define BUFFER_SIZE 256
@@ -17,6 +25,8 @@ struct StockData {
     char date[20];
     double closing_price;
 };
+
+int quit = 0;
 
 void read_stock_data(const char *file_name, struct StockData *stock_data, int *num_entries) {
     FILE *file = fopen(file_name, "r");
@@ -56,66 +66,78 @@ void read_stock_data(const char *file_name, struct StockData *stock_data, int *n
 
 void handle_client_requests(int client_socket, struct StockData *msft_stock, int msft_entries, struct StockData *tsla_stock, int tsla_entries) {
     char buffer[BUFFER_SIZE];
-    int msg_len = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
-    if (msg_len <= 0) {
-        perror("Error reading from socket");
-        close(client_socket);
-        return;
-    }
-    buffer[msg_len] = '\0';
+    while (1) {
+        memset(buffer, 0, BUFFER_SIZE);
+        int msg_len = recv(client_socket, buffer, BUFFER_SIZE - 1, 0);
+        if (msg_len <= 0) {
+            perror("Error reading from socket");
+            close(client_socket);
+            return;
+        }
+        buffer[msg_len] = '\0';
 
-    printf("%s\n", buffer);
+        char command[BUFFER_SIZE], stock[BUFFER_SIZE], date1[20];
+        sscanf(buffer, "%s %s %s", command, stock, date1);
 
-    char command[BUFFER_SIZE], stock[BUFFER_SIZE], date1[20];
-    sscanf(buffer, "%s %s %s", command, stock, date1);
+        if (strcmp(command, "quit") != 0) {
+            printf("%s", buffer);
+        }
 
-    if (strcmp(command, "List") == 0) {
-        char response[BUFFER_SIZE];
-        snprintf(response, BUFFER_SIZE, "TSLA | MSFT");
-        send(client_socket, response, strlen(response), 0);
-    } else if (strcmp(command, "Prices") == 0) {
-    if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10) {
-        double price = -1.0;
-        struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
-        int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
-        int found = 0;
-        for (int i = 0; i < entries; ++i) {
-            if (strcmp(selected_stock[i].date, date1) == 0) {
-                price = selected_stock[i].closing_price;
-                found = 1;
-                break;
+        if (strcmp(command, "quit") == 0) {
+            quit = 1;
+            break;
+        } else if (strcmp(command, "List") == 0) {
+            char response[BUFFER_SIZE];
+            snprintf(response, BUFFER_SIZE, "TSLA | MSFT");
+            send(client_socket, response, strlen(response), 0);
+        } else if (strcmp(command, "Prices") == 0) {
+        if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10) {
+            double price = -1.0;
+            struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
+            int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
+            int found = 0;
+            for (int i = 0; i < entries; ++i) {
+                if (strcmp(selected_stock[i].date, date1) == 0) {
+                    price = selected_stock[i].closing_price;
+                    found = 1;
+                    break;
+                }
             }
-        }
-        char response[BUFFER_SIZE];
-        if (found) {
-            // Adjust the price to have 2 digits after the decimal point
-            snprintf(response, BUFFER_SIZE, "%.2f", price);
+            char response[BUFFER_SIZE];
+            if (found) {
+                // Adjust the price to have 2 digits after the decimal point
+                snprintf(response, BUFFER_SIZE, "%.2f", price);
+            } else {
+                snprintf(response, BUFFER_SIZE, "Price not found for the date");
+            }
+            send(client_socket, response, strlen(response), 0);
         } else {
-            snprintf(response, BUFFER_SIZE, "Price not found for the date");
+            char invalid_msg[] = "Invalid syntax or date format\n";
+            send(client_socket, invalid_msg, strlen(invalid_msg), 0);
         }
-        send(client_socket, response, strlen(response), 0);
-    } else {
-        char invalid_msg[] = "Invalid syntax or date format\n";
-        send(client_socket, invalid_msg, strlen(invalid_msg), 0);
+        // } else if (strcmp(command, "MaxProfit") == 0) {
+        //     char date2[20];
+        //     sscanf(buffer, "%s %s %s %s", command, stock, date1, date2);
+
+        //     if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10 && strlen(date2) == 10) {
+        //         struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
+        //         int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
+
+        //         double profit = calculate_max_profit(selected_stock, entries, date1, date2);
+
+        //         char response[BUFFER_SIZE];
+        //         if (profit >= 0.0) {
+        //             snprintf(response, BUFFER_SIZE, "%.2f", profit);
+        //         } else {
+        //             snprintf(response, BUFFER_SIZE, "Max profit not found for the date range");
+        //         }
+        //         send(client_socket, response, strlen(response), 0);
+        } else {
+            char invalid_msg[] = "Invalid command";
+            send(client_socket, invalid_msg, strlen(invalid_msg), 0);
+        }
     }
-    // } else if (strcmp(command, "MaxProfit") == 0) {
-    //     char date2[20];
-    //     sscanf(buffer, "%s %s %s %s", command, stock, date1, date2);
-
-    //     if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10 && strlen(date2) == 10) {
-    //         struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
-    //         int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
-
-    //         double profit = calculate_max_profit(selected_stock, entries, date1, date2);
-
-    //         char response[BUFFER_SIZE];
-    //         if (profit >= 0.0) {
-    //             snprintf(response, BUFFER_SIZE, "%.2f", profit);
-    //         } else {
-    //             snprintf(response, BUFFER_SIZE, "Max profit not found for the date range");
-    //         }
-    //         send(client_socket, response, strlen(response), 0);
-    }
+    
 
     close(client_socket);
 }
@@ -157,8 +179,8 @@ int main(int argc, char *argv[]) {
         close(server_socket);
         return 1;
     }
-    printf("Server started\n");
-    while (1) {
+    printf("server started\n");
+    while (!quit) {
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         int client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_len);
