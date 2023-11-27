@@ -21,6 +21,10 @@
 11/26 - Zahradinee
 - Updated the code for the Max Profit command & created the calculate max profit function!
     - it currently works for the MSFT but not for the TSLA :(
+
+11/26 - Kevin
+- I fixed the bug inside the calculate_max_profit function
+  - It seems to have fixed the bug with the TSLA max profit not working!
 */
 
 #define BUFFER_SIZE 256
@@ -71,28 +75,35 @@ void read_stock_data(const char *file_name, struct StockData *stock_data, int *n
 double calculate_max_profit(struct StockData *stock_data, int num_entries, const char *start_date, const char *end_date) {
     double max_profit = -1.0;
     double min_price = -1.0;
-    double max_price = -1.0;
 
     int buy_date_found = 0;
-    int sell_date_found = 0;
 
     for (int i = 0; i < num_entries; ++i) {
+        double closing_price = stock_data[i].closing_price;
         if (strcmp(stock_data[i].date, start_date) == 0) {
             buy_date_found = 1;
-            min_price = stock_data[i].closing_price;
+            min_price = closing_price;
+            continue;
         }
 
-        if (strcmp(stock_data[i].date, end_date) == 0) {
-            sell_date_found = 1;
-            max_price = stock_data[i].closing_price;
+        if (buy_date_found) {
+            if (closing_price < min_price) {
+                min_price = closing_price;
+            }
+            double profit = closing_price - min_price;
+            if (profit > max_profit) {
+                max_profit = profit;
+            }
+            if (strcmp(stock_data[i].date, end_date) == 0) {
+                break;
+            }
         }
     }
 
-    if (!buy_date_found || !sell_date_found || strcmp(start_date, end_date) >= 0) {
+    if (!buy_date_found || strcmp(start_date, end_date) >= 0) {
         return -1.0; // return -1.0 so no valid buying/selling date found/invalid date range
     }
 
-    max_profit = max_price - min_price;
     return max_profit;
 }
 
