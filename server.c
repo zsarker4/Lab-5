@@ -17,6 +17,10 @@
 - The Prices command seems to work fine now!
 - Fixed a little bit of the formatting to match the example output on the assignment spec
 - Created the quit command, it quits both the client and server.
+
+11/26 - Zahradinee
+- Updated the code for the Max Profit command & created the calculate max profit function!
+    - it currently works for the MSFT but not for the TSLA :(
 */
 
 #define BUFFER_SIZE 256
@@ -62,6 +66,34 @@ void read_stock_data(const char *file_name, struct StockData *stock_data, int *n
     }
     *num_entries = count;
     fclose(file);
+}
+
+double calculate_max_profit(struct StockData *stock_data, int num_entries, const char *start_date, const char *end_date) {
+    double max_profit = -1.0;
+    double min_price = -1.0;
+    double max_price = -1.0;
+
+    int buy_date_found = 0;
+    int sell_date_found = 0;
+
+    for (int i = 0; i < num_entries; ++i) {
+        if (strcmp(stock_data[i].date, start_date) == 0) {
+            buy_date_found = 1;
+            min_price = stock_data[i].closing_price;
+        }
+
+        if (strcmp(stock_data[i].date, end_date) == 0) {
+            sell_date_found = 1;
+            max_price = stock_data[i].closing_price;
+        }
+    }
+
+    if (!buy_date_found || !sell_date_found || strcmp(start_date, end_date) >= 0) {
+        return -1.0; // return -1.0 so no valid buying/selling date found/invalid date range
+    }
+
+    max_profit = max_price - min_price;
+    return max_profit;
 }
 
 void handle_client_requests(int client_socket, struct StockData *msft_stock, int msft_entries, struct StockData *tsla_stock, int tsla_entries) {
@@ -115,32 +147,33 @@ void handle_client_requests(int client_socket, struct StockData *msft_stock, int
             char invalid_msg[] = "Invalid syntax or date format\n";
             send(client_socket, invalid_msg, strlen(invalid_msg), 0);
         }
-        // } else if (strcmp(command, "MaxProfit") == 0) {
-        //     char date2[20];
-        //     sscanf(buffer, "%s %s %s %s", command, stock, date1, date2);
-
-        //     if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10 && strlen(date2) == 10) {
-        //         struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
-        //         int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
-
-        //         double profit = calculate_max_profit(selected_stock, entries, date1, date2);
-
-        //         char response[BUFFER_SIZE];
-        //         if (profit >= 0.0) {
-        //             snprintf(response, BUFFER_SIZE, "%.2f", profit);
-        //         } else {
-        //             snprintf(response, BUFFER_SIZE, "Max profit not found for the date range");
-        //         }
-        //         send(client_socket, response, strlen(response), 0);
+        } else if (strcmp(command, "MaxProfit") == 0) {
+            char date2[20];
+            sscanf(buffer, "%s %s %s %s", command, stock, date1, date2);
+            if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10 && strlen(date2) == 10) {
+            struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
+            int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
+  
+            double profit = calculate_max_profit(selected_stock, entries, date1, date2);
+  
+            char response[BUFFER_SIZE];
+            if (profit >= 0.0) {
+                snprintf(response, BUFFER_SIZE, "%.2f", profit);
+            } else {
+                snprintf(response, BUFFER_SIZE, "Max profit not found for the date range");
+            }
+            send(client_socket, response, strlen(response), 0);
         } else {
-            char invalid_msg[] = "Invalid syntax";
+            char invalid_msg[] = "Invalid syntax or date format\n";
             send(client_socket, invalid_msg, strlen(invalid_msg), 0);
         }
+            } else {
+                char invalid_msg[] = "Invalid syntax";
+                send(client_socket, invalid_msg, strlen(invalid_msg), 0);
+            }
+        }
+        close(client_socket);
     }
-    
-
-    close(client_socket);
-}
 
 
 int main(int argc, char *argv[]) {
