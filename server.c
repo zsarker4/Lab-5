@@ -25,6 +25,14 @@
 11/26 - Kevin
 - I fixed the bug inside the calculate_max_profit function
   - It seems to have fixed the bug with the TSLA max profit not working!
+
+11/28 - Kevin
+- I made it so you can input MSFT.csv and TSLA.csv in any order and it should work
+- I made it so you can input either MSFT.csv or TSLA.csv by itself and it would work
+  - Commands now reflect this as well, the List command isn't hardcoded anymore.
+  - If you only inputted MSFT.csv, for example, using commands with TSLA will yield "Unknown"
+- I fixed some of the formatting to fit the new announcement from the TA (regarding the date formats)
+  - Created a simple is_valid_date() function
 */
 
 #define BUFFER_SIZE 256
@@ -35,6 +43,19 @@ struct StockData {
 };
 
 int quit = 0;
+
+// simple date checking, just checks format, doesn't check if the date is actually real or valid
+int is_valid_date(const char *date) {
+    // Check length
+    if (strlen(date) != 10)
+        return 0;
+
+    // Check if the format is correct YYYY-MM-DD
+    if (date[4] != '-' || date[7] != '-')
+        return 0;
+
+    return 1; // Date is valid
+}
 
 void read_stock_data(const char *file_name, struct StockData *stock_data, int *num_entries) {
     FILE *file = fopen(file_name, "r");
@@ -130,38 +151,54 @@ void handle_client_requests(int client_socket, struct StockData *msft_stock, int
             quit = 1;
             break;
         } else if (strcmp(command, "List") == 0) {
-            char response[BUFFER_SIZE];
-            snprintf(response, BUFFER_SIZE, "TSLA | MSFT");
+            char response[BUFFER_SIZE] = "";
+            if (tsla_entries > 0) {
+                strcat(response, "TSLA");
+                if (msft_entries > 0) {
+                    strcat(response, " | MSFT");
+                }
+            } else if (msft_entries > 0) {
+                strcat(response, "MSFT");
+            }
             send(client_socket, response, strlen(response), 0);
         } else if (strcmp(command, "Prices") == 0) {
-        if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10) {
-            double price = -1.0;
-            struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
-            int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
-            int found = 0;
-            for (int i = 0; i < entries; ++i) {
-                if (strcmp(selected_stock[i].date, date1) == 0) {
-                    price = selected_stock[i].closing_price;
-                    found = 1;
-                    break;
+            if (is_valid_date(date1)) {
+                double price = -1.0;
+                int found = 0;
+                char response[BUFFER_SIZE];
+
+                if (strcmp(stock, "MSFT") == 0 && msft_entries > 0) {
+                    for (int i = 0; i < msft_entries; ++i) {
+                        if (strcmp(msft_stock[i].date, date1) == 0) {
+                            price = msft_stock[i].closing_price;
+                            found = 1;
+                            break;
+                        }
+                    }
+                } else if (strcmp(stock, "TSLA") == 0 && tsla_entries > 0) {
+                    for (int i = 0; i < tsla_entries; ++i) {
+                        if (strcmp(tsla_stock[i].date, date1) == 0) {
+                            price = tsla_stock[i].closing_price;
+                            found = 1;
+                            break;
+                        }
+                    }
                 }
-            }
-            char response[BUFFER_SIZE];
-            if (found) {
-                // Adjust the price to have 2 digits after the decimal point
-                snprintf(response, BUFFER_SIZE, "%.2f", price);
+
+                if (found) {
+                    snprintf(response, BUFFER_SIZE, "%.2f", price);
+                } else {
+                    snprintf(response, BUFFER_SIZE, "Unknown");
+                }
+                send(client_socket, response, strlen(response), 0);
             } else {
-                snprintf(response, BUFFER_SIZE, "Unknown");
+                char invalid_msg[] = "Invalid syntax";
+                send(client_socket, invalid_msg, strlen(invalid_msg), 0);
             }
-            send(client_socket, response, strlen(response), 0);
-        } else {
-            char invalid_msg[] = "Invalid syntax or date format\n";
-            send(client_socket, invalid_msg, strlen(invalid_msg), 0);
-        }
         } else if (strcmp(command, "MaxProfit") == 0) {
             char date2[20];
             sscanf(buffer, "%s %s %s %s", command, stock, date1, date2);
-            if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && strlen(date1) == 10 && strlen(date2) == 10) {
+            if ((strcmp(stock, "MSFT") == 0 || strcmp(stock, "TSLA") == 0) && is_valid_date(date1) && is_valid_date(date2)) {
             struct StockData *selected_stock = strcmp(stock, "MSFT") == 0 ? msft_stock : tsla_stock;
             int entries = strcmp(stock, "MSFT") == 0 ? msft_entries : tsla_entries;
   
@@ -171,11 +208,11 @@ void handle_client_requests(int client_socket, struct StockData *msft_stock, int
             if (profit >= 0.0) {
                 snprintf(response, BUFFER_SIZE, "%.2f", profit);
             } else {
-                snprintf(response, BUFFER_SIZE, "Max profit not found for the date range");
+                snprintf(response, BUFFER_SIZE, "Unknown");
             }
             send(client_socket, response, strlen(response), 0);
         } else {
-            char invalid_msg[] = "Invalid syntax or date format\n";
+            char invalid_msg[] = "Invalid syntax";
             send(client_socket, invalid_msg, strlen(invalid_msg), 0);
         }
             } else {
@@ -189,15 +226,23 @@ void handle_client_requests(int client_socket, struct StockData *msft_stock, int
 
 int main(int argc, char *argv[]) {
     // port num
-    if (argc != 4) {
+    if (argc != 3 && argc != 4) {
         fprintf(stderr, "Usage: %s MSFT.csv TSLA.csv <port>\n", argv[0]);
         return 1;
     }
     struct StockData msft_stock[1000];
     struct StockData tsla_stock[1000];
     int msft_entries = 0, tsla_entries = 0;
-    read_stock_data(argv[1], msft_stock, &msft_entries);
-    read_stock_data(argv[2], tsla_stock, &tsla_entries);
+    for (int i = 1; i < argc - 1; ++i) {
+        if (i < argc - 1) {
+            if (strcmp(argv[i], "MSFT.csv") == 0) {
+                read_stock_data(argv[i], msft_stock, &msft_entries);
+            } else if (strcmp(argv[i], "TSLA.csv") == 0) {
+                read_stock_data(argv[i], tsla_stock, &tsla_entries);
+            }
+        }
+    }
+    
     // socket
     int server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {
@@ -210,7 +255,7 @@ int main(int argc, char *argv[]) {
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    server_addr.sin_port = htons(atoi(argv[3]));
+    server_addr.sin_port = htons(atoi(argv[argc - 1]));
 
     if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
         perror("Bind failed");
