@@ -78,6 +78,19 @@ int main(int argc, char *argv[]) {
         // read input
         fgets(message, BUFFER_SIZE, stdin);
 
+        int is_empty = 1;
+        for (int i = 0; message[i] != '\0'; ++i) {
+            // check if the input is just spaces, newlines, or tabs
+            if (message[i] != ' ' && message[i] != '\n' && message[i] != '\t') {
+                is_empty = 0;
+                break;
+            }
+        }
+        if (is_empty) {
+            // flush the input if the input is empty
+            continue;
+        }
+
         // send input to server
         send(sock, message, strlen(message), 0);
 
