@@ -33,6 +33,11 @@
   - If you only inputted MSFT.csv, for example, using commands with TSLA will yield "Unknown"
 - I fixed some of the formatting to fit the new announcement from the TA (regarding the date formats)
   - Created a simple is_valid_date() function
+
+  11/30 - Zahradinee
+  11/28 - Kevin
+- Updated the is valid date function so it makes sure the month is within 1-13 range, year is within 0001 - 9999 and day is within 1-31
+- also made sure to account for leap years
 */
 
 #define BUFFER_SIZE 256
@@ -44,7 +49,6 @@ struct StockData {
 
 int quit = 0;
 
-// simple date checking, just checks format, doesn't check if the date is actually real or valid
 int is_valid_date(const char *date) {
     // Check length
     if (strlen(date) != 10)
@@ -52,6 +56,32 @@ int is_valid_date(const char *date) {
 
     // Check if the format is correct YYYY-MM-DD
     if (date[4] != '-' || date[7] != '-')
+        return 0;
+
+    // Extract year, month and day from date string
+    int year = atoi(date);
+    int month = atoi(date + 5);
+    int day = atoi(date + 8);
+
+    // Validate year, month, and day ranges
+    if (year < 1 || year > 9999)
+        return 0;
+
+    if (month < 1 || month > 12)
+        return 0;
+
+    int max_days_in_month = 31; // Set default maximum days in a month
+    if (month == 4 || month == 6 || month == 9 || month == 11)
+        max_days_in_month = 30;
+    else if (month == 2) {
+        // Feb has 28 days in a common year and 29 in a leap year
+        if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0))
+            max_days_in_month = 29;
+        else
+            max_days_in_month = 28;
+    }
+
+    if (day < 1 || day > max_days_in_month)
         return 0;
 
     return 1; // Date is valid
