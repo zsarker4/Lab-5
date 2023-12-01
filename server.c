@@ -1,44 +1,13 @@
+/*
+Name:Zahradinee Sarker ID:24325057
+Name:Kevin Tran ID:72244158 
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
-
-/*
-11/25 Update - Zahradinee
-- Set up basic client server structure
-- Need to do MaxProfits and Prices commands
-- Currently has a bug where the prices command kills the terminal I'm not sure how to fix that
-
-11/26 - Kevin
-- Fixed the bugs related to command processing
-  - It now handles invalid commands
-  - The terminal doesn't kill after the second command anymore (it needed a while loop)
-- The Prices command seems to work fine now!
-- Fixed a little bit of the formatting to match the example output on the assignment spec
-- Created the quit command, it quits both the client and server.
-
-11/26 - Zahradinee
-- Updated the code for the Max Profit command & created the calculate max profit function!
-    - it currently works for the MSFT but not for the TSLA :(
-
-11/26 - Kevin
-- I fixed the bug inside the calculate_max_profit function
-  - It seems to have fixed the bug with the TSLA max profit not working!
-
-11/28 - Kevin
-- I made it so you can input MSFT.csv and TSLA.csv in any order and it should work
-- I made it so you can input either MSFT.csv or TSLA.csv by itself and it would work
-  - Commands now reflect this as well, the List command isn't hardcoded anymore.
-  - If you only inputted MSFT.csv, for example, using commands with TSLA will yield "Unknown"
-- I fixed some of the formatting to fit the new announcement from the TA (regarding the date formats)
-  - Created a simple is_valid_date() function
-
-  11/30 - Zahradinee
-  11/28 - Kevin
-- Updated the is valid date function so it makes sure the month is within 1-13 range, year is within 0001 - 9999 and day is within 1-31
-- also made sure to account for leap years
-*/
 
 #define BUFFER_SIZE 256
 
